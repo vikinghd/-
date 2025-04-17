@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网页版提词器 V2</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        .input-section, .control-section, .display-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-section h2, .control-section h2 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        #textInput {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: inherit;
+            margin-bottom: 10px;
+        }
+
+        .control-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .control-item {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .value-display {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 8px 15px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+            flex: 1;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button.stop {
+            background: #e74c3c;
+        }
+
+        button.stop:hover {
+            background: #c0392b;
+        }
+
+        button.reset {
+            background: #95a5a6;
+        }
+
+        button.reset:hover {
+            background: #7f8c8d;
+        }
+
+        button.record {
+            background: #27ae60;
+        }
+
+        button.record:hover {
+            background: #219a52;
+        }
+
+        button.disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        button.disabled:hover {
+            background: #bdc3c7;
+        }
+
+        .display-container {
+            position: relative;
+            height: 300px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+
+        #prompterDisplay {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            padding: 20px;
+            transition: transform 0.1s linear;
+        }
+
+        .sentence {
+            margin-bottom: 20px;
+        }
+
+        .fullscreen-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            z-index: 100;
+        }
+
+        /* 全屏模式样式 */
+        .display-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            border-radius: 0;
+        }
+
+        /* 暗色模式 */
+        .dark-mode {
+            background-color: #222;
+            color: #fff;
+        }
+
+        /* 全屏控制面板 */
+        .fullscreen-controls {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            z-index: 1001;
+            color: white;
+        }
+
+        .fullscreen .fullscreen-controls {
+            display: block;
+        }
+        
+        .fullscreen-controls .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .fullscreen-controls .control-item {
+            margin: 0 10px;
+            flex: 1;
+        }
+        
+        .fullscreen-controls label {
+            color: white;
+        }
+        
+        .fullscreen-controls .button-group {
+            margin-top: 0;
+        }
+        
+        /* 控制面板显示/隐藏切换 */
+        .controls-toggle {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1002;
+        }
+        
+        .fullscreen .controls-toggle {
+            display: flex;
+        }
+        
+        /* 录音状态样式 */
+        .recording-indicator {
+            display: none;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #e74c3c;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            z-index: 100;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .recording .recording-indicator {
+            display: block;
+        }
+        
+        .audio-controls {
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .audio-controls.active {
+            display: block;
+        }
+        
+        #recordedAudio {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>网页版提词器 V2</h1>
+        
+        <div class="input-section">
+            <h2>输入文本</h2>
+            <textarea id="textInput" placeholder="请在此输入需要提词的文本，系统将按标点符号自动拆分..."></textarea>
+            <div class="button-group">
+                <button id="processBtn">处理文本</button>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <div class="control-group">
+                <div class="control-item">
+                    <label for="scrollSpeed">滚动速度</label>
+                    <input type="range" id="scrollSpeed" min="0.1" max="10" step="0.1" value="1">
+                    <div class="value-display">当前: <span id="speedValue">1</span> (0.1-10)</div>
+                </div>
+                
+                <div class="control-item">
+                    <label for="fontSize">字体大小</label>
+                    <input type="range" id="fontSize" min="14" max="72" value="24">
+                    <div class="value-display">当前: <span id="fontValue">24</span>px</div>
+                </div>
+                
+                <div class="control-item">
+                    <label for="fontFamily">字体选择</label>
+                    <select id="fontFamily">
+                        <option value="'Microsoft YaHei', sans-serif">微软雅黑</option>
+                        <option value="'SimSun', serif">宋体</option>
+                        <option value="'KaiTi', serif">楷体</option>
+                        <option value="'SimHei', sans-serif">黑体</option>
+                        <option value="Arial, sans-serif">Arial</option>
+                    </select>
+                </div>
+                
+                <!-- 新增录音控制 -->
+                <div class="control-item">
+                    <label>录音功能</label>
+                    <div class="button-group">
+                        <button id="startRecordBtn" class="record">开始录音</button>
+                        <button id="stopRecordBtn" class="stop" disabled>停止录音</button>
+                    </div>
+                    <div class="value-display" id="recordingStatus">未开始录音</div>
+                    <div class="audio-controls" id="audioControls">
+                        <audio id="recordedAudio" controls></audio>
+                        <div class="button-group">
+                            <button id="downloadBtn" class="reset">下载录音</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <div class="control-item">
+                    <label>背景模式</label>
+                    <div>
+                        <input type="radio" id="lightMode" name="displayMode" value="light" checked>
+                        <label for="lightMode">亮色模式</label>
+                        <input type="radio" id="darkMode" name="displayMode" value="dark">
+                        <label for="darkMode">暗色模式</label>
+                    </div>
+                </div>
+                
+                <!-- 添加语速检测控制项 -->
+                <div class="control-item">
+                    <label>语速检测</label>
+                    <div class="button-group">
+                        <button id="testSpeedBtn">测试我的语速</button>
+                    </div>
+                    <div class="value-display" id="speedTestResult"></div>
+                </div>
+                
+                <div class="button-group">
+                    <button id="startBtn">开始滚动</button>
+                    <button id="pauseBtn" class="stop">暂停</button>
+                    <button id="resetBtn" class="reset">重置</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="display-container">
+            <button class="fullscreen-toggle" id="fullscreenBtn">全屏显示</button>
+            <div id="prompterDisplay"></div>
+            
+            <!-- 录音指示器 -->
+            <div class="recording-indicator">● 录音中</div>
+            
+            <!-- 全屏模式控制面板 -->
+            <div class="fullscreen-controls">
+                <div class="control-row">
+                    <div class="control-item">
+                        <label for="fsScrollSpeed">滚动速度</label>
+                        <input type="range" id="fsScrollSpeed" min="0.1" max="10" step="0.1" value="1">
+                        <div class="value-display">当前: <span id="fsSpeedValue">1</span></div>
+                    </div>
+                    
+                    <div class="control-item">
+                        <label for="fsFontSize">字体大小</label>
+                        <input type="range" id="fsFontSize" min="14" max="72" value="24">
+                        <div class="value-display">当前: <span id="fsFontValue">24</span>px</div>
+                    </div>
+                    
+                    <!-- 全屏模式下的录音控制 -->
+                    <div class="control-item">
+                        <label>录音控制</label>
+                        <div class="button-group">
+                            <button id="fsStartRecordBtn" class="record">开始录音</button>
+                            <button id="fsStopRecordBtn" class="stop" disabled>停止录音</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button id="fsStartBtn">开始滚动</button>
+                    <button id="fsPauseBtn" class="stop">暂停</button>
+                    <button id="fsResetBtn" class="reset">重置</button>
+                    <button id="fsExitBtn" class="reset">退出全屏</button>
+                </div>
+            </div>
+            
+            <!-- 控制面板显示/隐藏切换按钮 -->
+            <button class="controls-toggle" id="controlsToggle">≡</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const textInput = document.getElementById('textInput');
+            const processBtn = document.getElementById('processBtn');
+            const prompterDisplay = document.getElementById('prompterDisplay');
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const scrollSpeedInput = document.getElementById('scrollSpeed');
+            const speedValue = document.getElementById('speedValue');
+            const fontSizeInput = document.getElementById('fontSize');
+            const fontValue = document.getElementById('fontValue');
+            const fontFamilySelect = document.getElementById('fontFamily');
+            const lightMode = document.getElementById('lightMode');
+            const darkMode = document.getElementById('darkMode');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const displayContainer = document.querySelector('.display-container');
+            const controlsToggle = document.getElementById('controlsToggle');
+            const fullscreenControls = document.querySelector('.fullscreen-controls');
+            
+            // 添加语速检测相关元素
+            const testSpeedBtn = document.getElementById('testSpeedBtn');
+            const speedTestResult = document.getElementById('speedTestResult');
+            
+            // 全屏控制元素
+            const fsScrollSpeedInput = document.getElementById('fsScrollSpeed');
+            const fsSpeedValue = document.getElementById('fsSpeedValue');
+            const fsFontSizeInput = document.getElementById('fsFontSize');
+            const fsFontValue = document.getElementById('fsFontValue');
+            const fsStartBtn = document.getElementById('fsStartBtn');
+            const fsPauseBtn = document.getElementById('fsPauseBtn');
+            const fsResetBtn = document.getElementById('fsResetBtn');
+            const fsExitBtn = document.getElementById('fsExitBtn');
+            
+            // 录音相关元素
+            const startRecordBtn = document.getElementById('startRecordBtn');
+            const stopRecordBtn = document.getElementById('stopRecordBtn');
+            const fsStartRecordBtn = document.getElementById('fsStartRecordBtn');
+            const fsStopRecordBtn = document.getElementById('fsStopRecordBtn');
+            const recordingStatus = document.getElementById('recordingStatus');
+            const audioControls = document.getElementById('audioControls');
+            const recordedAudio = document.getElementById('recordedAudio');
+            const downloadBtn = document.getElementById('downloadBtn');
+            
+            // 变量定义
+            let sentences = [];
+            let isScrolling = false;
+            let animationId = null;
+            let scrollPosition = 0;
+            let scrollSpeed = parseFloat(scrollSpeedInput.value);
+            let controlsVisible = true;
+            
+            // 录音相关变量
+            let mediaRecorder;
+            let audioChunks = [];
+            let isRecording = false;
+            let recordedBlob = null;
+            
+            // 初始化
+            updateFontSize();
+            updateDisplayMode();
+            syncFullscreenControls();
+            
+            // 处理文本按钮事件
+            processBtn.addEventListener('click', processText);
+            
+            // 控制按钮事件
+            startBtn.addEventListener('click', startScrolling);
+            pauseBtn.addEventListener('click', pauseScrolling);
+            resetBtn.addEventListener('click', resetScrolling);
+            
+            // 全屏控制按钮事件
+            fsStartBtn.addEventListener('click', startScrolling);
+            fsPauseBtn.addEventListener('click', pauseScrolling);
+            fsResetBtn.addEventListener('click', resetScrolling);
+            fsExitBtn.addEventListener('click', exitFullscreen);
+            
+            // 设置事件
+            scrollSpeedInput.addEventListener('input', function() {
+                scrollSpeed = parseFloat(this.value);
+                speedValue.textContent = this.value;
+                fsScrollSpeedInput.value = this.value;
+                fsSpeedValue.textContent = this.value;
+            });
+            
+            fsScrollSpeedInput.addEventListener('input', function() {
+                scrollSpeed = parseFloat(this.value);
+                fsSpeedValue.textContent = this.value;
+                scrollSpeedInput.value = this.value;
+                speedValue.textContent = this.value;
+            });
+            
+            fontSizeInput.addEventListener('input', function() {
+                updateFontSize();
+                fsFontSizeInput.value = this.value;
+                fsFontValue.textContent = this.value;
+            });
+            
+            fsFontSizeInput.addEventListener('input', function() {
+                prompterDisplay.style.fontSize = `${this.value}px`;
+                fsFontValue.textContent = this.value;
+                fontSizeInput.value = this.value;
+                fontValue.textContent = this.value;
+            });
+            
+            fontFamilySelect.addEventListener('change', updateFontFamily);
+            
+            lightMode.addEventListener('change', updateDisplayMode);
+            darkMode.addEventListener('change', updateDisplayMode);
+            
+            // 全屏切换
+            fullscreenBtn.addEventListener('click', toggleFullScreen);
+            
+            // 全屏控制面板切换
+            controlsToggle.addEventListener('click', toggleControls);
+
+            // 添加语速检测事件监听器
+            testSpeedBtn.addEventListener('click', testSpeakingSpeed);
+            
+            // 录音按钮事件监听
+            startRecordBtn.addEventListener('click', startRecording);
+            stopRecordBtn.addEventListener('click', stopRecording);
+            fsStartRecordBtn.addEventListener('click', startRecording);
+            fsStopRecordBtn.addEventListener('click', stopRecording);
+            downloadBtn.addEventListener('click', downloadRecording);
+            
+            // 保存和加载用户设置
+            loadSettings();
+            window.addEventListener('beforeunload', saveSettings);
+            
+            // 函数定义
+            // 录音相关功能
+            async function startRecording() {
+                try {
+                    // 检查浏览器支持
+                    if (!navigator.mediaDevices || !window.MediaRecorder) {
+                        alert('您的浏览器不支持录音功能');
+                        return;
+                    }
+                    
+                    // 请求麦克风权限
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    // 创建MediaRecorder实例
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    // 收集录音数据
+                    mediaRecorder.addEventListener('dataavailable', event => {
+                        audioChunks.push(event.data);
+                    });
+                    
+                    // 录音结束处理
+                    mediaRecorder.addEventListener('stop', () => {
+                        // 创建音频Blob
+                        recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        
+                        // 创建音频URL并设置播放器
+                        const audioURL = URL.createObjectURL(recordedBlob);
+                        recordedAudio.src = audioURL;
+                        
+                        // 显示音频控制
+                        audioControls.classList.add('active');
+                        
+                        // 更新状态
+                        recordingStatus.textContent = '录音已完成，可以预览和下载';
+                        recordingStatus.style.color = '#27ae60';
+                        
+                        // 重置按钮状态
+                        updateRecordButtonState(false);
+                        
+                        // 关闭音轨
+                        stream.getTracks().forEach(track => track.stop());
+                    });
+                    
+                    // 开始录音
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    // 更新UI
+                    displayContainer.classList.add('recording');
+                    recordingStatus.textContent = '正在录音...';
+                    recordingStatus.style.color = '#e74c3c';
+                    
+                    // 更新按钮状态
+                    updateRecordButtonState(true);
+                    
+                } catch (err) {
+                    console.error('录音发生错误:', err);
+                    alert(`录音失败: ${err.message}`);
+                    updateRecordButtonState(false);
+                }
+            }
+            
+            function stopRecording() {
+                if (mediaRecorder && isRecording) {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    displayContainer.classList.remove('recording');
+                }
+            }
+            
+            function updateRecordButtonState(isRecording) {
+                // 更新普通界面按钮状态
+                startRecordBtn.disabled = isRecording;
+                stopRecordBtn.disabled = !isRecording;
+                startRecordBtn.classList.toggle('disabled', isRecording);
+                stopRecordBtn.classList.toggle('disabled', !isRecording);
+                
+                // 更新全屏界面按钮状态
+                fsStartRecordBtn.disabled = isRecording;
+                fsStopRecordBtn.disabled = !isRecording;
+                fsStartRecordBtn.classList.toggle('disabled', isRecording);
+                fsStopRecordBtn.classList.toggle('disabled', !isRecording);
+            }
+            
+            function downloadRecording() {
+                if (!recordedBlob) {
+                    alert('没有可用的录音');
+                    return;
+                }
+                
+                // 创建下载链接
+                const a = document.createElement('a');
+                
+                // 获取当前日期时间作为文件名
+                const now = new Date();
+                const fileName = `录音_${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}-${now.getMinutes().toString().padStart(2, '0')}.webm`;
+                
+                // 设置下载链接
+                a.href = URL.createObjectURL(recordedBlob);
+                a.download = fileName;
+                
+                // 模拟点击下载
+                a.click();
+                
+                // 释放URL
+                setTimeout(() => {
+                    URL.revokeObjectURL(a.href);
+                }, 100);
+            }
+            
+            // 添加语速检测功能
+            function testSpeakingSpeed() {
+                // 检查浏览器是否支持语音识别
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    alert('您的浏览器不支持语音识别功能，请使用Chrome、Edge或Safari浏览器');
+                    return;
+                }
+
+                // 创建语音识别对象
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                
+                // 配置语音识别
+                recognition.lang = 'zh-CN'; // 可以根据需要切换语言，例如'en-US'
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+                
+                // 准备测试文本
+                const testText = prompterDisplay.textContent || '请先处理文本';
+                const sampleLength = Math.min(testText.length, 100); // 取前100字符作为样本
+                const sample = testText.substring(0, sampleLength);
+                
+                // 更新显示
+                speedTestResult.textContent = '请朗读显示区域的文字，5秒后开始记录...';
+                speedTestResult.style.color = '#e74c3c';
+                
+                // 准备测试
+                let testStarted = false;
+                let startTime;
+                const testDuration = 10000; // 测试时长，毫秒
+                
+                // 5秒后开始测试
+                setTimeout(() => {
+                    testStarted = true;
+                    startTime = Date.now();
+                    speedTestResult.textContent = '正在录音，请朗读显示区域的文字...';
+                    recognition.start();
+                    
+                    // 设置测试结束定时器
+                    setTimeout(() => {
+                        if (recognition) {
+                            recognition.stop();
+                            speedTestResult.textContent = '处理中...';
+                        }
+                    }, testDuration);
+                }, 5000);
+                
+                // 收到结果
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    const endTime = Date.now();
+                    const elapsedTime = (endTime - startTime) / 1000; // 秒
+                    const characterCount = transcript.length;
+                    
+                    // 计算语速：字符/分钟
+                    const charactersPerMinute = Math.round((characterCount / elapsedTime) * 60);
+                    
+                    // 计算建议的滚动速度
+                    // 根据经验值映射，可以根据实际情况调整
+                    let suggestedSpeed;
+                    
+                    if (charactersPerMinute < 100) {
+                        suggestedSpeed = 0.5; // 很慢
+                    } else if (charactersPerMinute < 150) {
+                        suggestedSpeed = 1; // 慢
+                    } else if (charactersPerMinute < 200) {
+                        suggestedSpeed = 2; // 中等
+                    } else if (charactersPerMinute < 300) {
+                        suggestedSpeed = 3; // 快
+                    } else {
+                        suggestedSpeed = 4; // 很快
+                    }
+                    
+                    // 更新UI
+                    speedTestResult.textContent = `您的语速约为 ${charactersPerMinute} 字/分钟，建议滚动速度设置：${suggestedSpeed.toFixed(1)}`;
+                    speedTestResult.style.color = '#2980b9';
+                    
+                    // 自动设置速度（可选）
+                    if (confirm(`是否将滚动速度设置为推荐值 ${suggestedSpeed.toFixed(1)}？`)) {
+                        scrollSpeedInput.value = suggestedSpeed;
+                        speedValue.textContent = suggestedSpeed;
+                        scrollSpeed = suggestedSpeed;
+                        
+                        // 同步全屏控制
+                        fsScrollSpeedInput.value = suggestedSpeed;
+                        fsSpeedValue.textContent = suggestedSpeed;
+                    }
+                };
+                
+                // 错误处理
+                recognition.onerror = function(event) {
+                    speedTestResult.textContent = `测试出错：${event.error}`;
+                    speedTestResult.style.color = '#e74c3c';
+                };
+            }
+
+            function processText() {
+                const text = textInput.value.trim();
+                if (!text) {
+                    alert('请输入文本内容');
+                    return;
+                }
+                
+                // 改进的分句正则表达式，同时支持中英文标点
+                sentences = splitTextIntoSentences(text);
+                
+                displaySentences();
+                resetScrolling();
+            }
+
+            // 新增的分句函数
+            function splitTextIntoSentences(text) {
+                // 同时匹配中英文的标点符号
+                // 中文：。！？…
+                // 英文：.!?...
+                // 考虑标点后可能的引号、括号和空格
+                const sentenceEndPattern = /(?<=[.。!！?？]{1}|(?:\.{3}|…))["'"')\]}]*\s*/g;
+                
+                // 使用正则表达式分割文本
+                const rawSentences = text.split(sentenceEndPattern);
+                
+                // 过滤空句子并修复可能缺失的标点
+                return rawSentences
+                    .map(s => s.trim())
+                    .filter(s => s !== '');
+            }
+            
+            function displaySentences() {
+                prompterDisplay.innerHTML = '';
+                
+                sentences.forEach(sentence => {
+                    const sentenceDiv = document.createElement('div');
+                    sentenceDiv.className = 'sentence';
+                    sentenceDiv.textContent = sentence.trim();
+                    prompterDisplay.appendChild(sentenceDiv);
+                });
+            }
+            
+            function startScrolling() {
+                if (sentences.length === 0) {
+                    alert('请先输入并处理文本');
+                    return;
+                }
+                
+                if (isScrolling) return;
+                isScrolling = true;
+                
+                function scroll() {
+                    scrollPosition += scrollSpeed * 0.5;
+                    prompterDisplay.style.transform = `translateY(-${scrollPosition}px)`;
+                    
+                    // 检查是否滚动到底部
+                    if (scrollPosition < prompterDisplay.clientHeight) {
+                        animationId = requestAnimationFrame(scroll);
+                    } else {
+                        isScrolling = false;
+                    }
+                }
+                
+                animationId = requestAnimationFrame(scroll);
+            }
+            
+            function pauseScrolling() {
+                if (!isScrolling) return;
+                
+                isScrolling = false;
+                cancelAnimationFrame(animationId);
+            }
+            
+            function resetScrolling() {
+                pauseScrolling();
+                scrollPosition = 0;
+                prompterDisplay.style.transform = 'translateY(0)';
+            }
+            
+            function updateFontSize() {
+                const fontSize = fontSizeInput.value;
+                fontValue.textContent = fontSize;
+                prompterDisplay.style.fontSize = `${fontSize}px`;
+            }
+            
+            function updateFontFamily() {
+                prompterDisplay.style.fontFamily = fontFamilySelect.value;
+            }
+            
+            function updateDisplayMode() {
+                if (darkMode.checked) {
+                    displayContainer.classList.add('dark-mode');
+                } else {
+                    displayContainer.classList.remove('dark-mode');
+                }
+            }
+            
+            function toggleFullScreen() {
+                displayContainer.classList.toggle('fullscreen');
+                if (displayContainer.classList.contains('fullscreen')) {
+                    fullscreenBtn.textContent = '退出全屏';
+                    controlsVisible = true;
+                    fullscreenControls.style.display = 'block';
+                } else {
+                    fullscreenBtn.textContent = '全屏显示';
+                    fullscreenControls.style.display = 'none';
+                }
+            }
+            
+            function exitFullscreen() {
+                displayContainer.classList.remove('fullscreen');
+                fullscreenBtn.textContent = '全屏显示';
+                fullscreenControls.style.display = 'none';
+            }
+            
+            function toggleControls() {
+                controlsVisible = !controlsVisible;
+                fullscreenControls.style.display = controlsVisible ? 'block' : 'none';
+                controlsToggle.textContent = controlsVisible ? '▼' : '≡';
+            }
+            
+            function syncFullscreenControls() {
+                fsScrollSpeedInput.value = scrollSpeedInput.value;
+                fsSpeedValue.textContent = scrollSpeedInput.value;
+                fsFontSizeInput.value = fontSizeInput.value;
+                fsFontValue.textContent = fontSizeInput.value;
+            }
+            
+            // 保存用户设置
+            function saveSettings() {
+                const settings = {
+                    scrollSpeed: scrollSpeedInput.value,
+                    fontSize: fontSizeInput.value,
+                    fontFamily: fontFamilySelect.value,
+                    displayMode: darkMode.checked ? 'dark' : 'light'
+                };
+                
+                localStorage.setItem('teleprompterSettings', JSON.stringify(settings));
+            }
+            
+            // 加载用户设置
+            function loadSettings() {
+                const savedSettings = localStorage.getItem('teleprompterSettings');
+                if (savedSettings) {
+                    const settings = JSON.parse(savedSettings);
+                    
+                    scrollSpeedInput.value = settings.scrollSpeed || 1;
+                    speedValue.textContent = scrollSpeedInput.value;
+                    scrollSpeed = parseFloat(scrollSpeedInput.value);
+                    
+                    fontSizeInput.value = settings.fontSize || 24;
+                    fontValue.textContent = fontSizeInput.value;
+                    
+                    fontFamilySelect.value = settings.fontFamily || "'Microsoft YaHei', sans-serif";
+                    
+                    if (settings.displayMode === 'dark') {
+                        darkMode.checked = true;
+                    } else {
+                        lightMode.checked = true;
+                    }
+                    
+                    updateFontSize();
+                    updateFontFamily();
+                    updateDisplayMode();
+                    syncFullscreenControls();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
